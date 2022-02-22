@@ -9,8 +9,6 @@ builds:
     binary: git-spr
     goos:
       - linux
-      - windows
-      - darwin
     ldflags:
       - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.CommitDate}} -X main.builtBy=gorelease
   - main: ./cmd/amend
@@ -18,8 +16,6 @@ builds:
     binary: git-amend
     goos:
       - linux
-      - windows
-      - darwin
     ldflags:
       - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.CommitDate}} -X main.builtBy=gorelease
   - main: ./cmd/commithook
@@ -27,8 +23,6 @@ builds:
     binary: spr_commit_hook
     goos:
       - linux
-      - windows
-      - darwin
     ldflags:
       - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.CommitDate}} -X main.builtBy=gorelease
   - main: ./cmd/reword
@@ -36,8 +30,6 @@ builds:
     binary: spr_reword_helper
     goos:
       - linux
-      - windows
-      - darwin
     ldflags:
       - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.CommitDate}} -X main.builtBy=gorelease
 archives:
@@ -45,12 +37,8 @@ archives:
     replacements:
       darwin: macos
       linux: linux
-      windows: windows
       386: i386
       amd64: x86_64
-    format_overrides:
-    - goos: windows
-      format: zip
 checksum:
   name_template: 'checksums.txt'
 snapshot:
@@ -89,16 +77,3 @@ nfpms:
     - git
     recommends:
     - golang
-#snapcrafts:
-#  - name_template: '{{ .ProjectName }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}'
-#    summary: Stacked Pull Requests on GitHub
-#    description: |
-#      spr is a tool to easily run and automate stacked diff workflows on GitHub.
-#    confinement: classic
-#    publish: true
-publishers:
-  - name: fury.io
-    ids:
-      - packages
-    dir: "{{ dir .ArtifactPath }}"
-    cmd: curl -F package=@{{ .ArtifactName }} https://{{ .Env.FURY_TOKEN }}@push.fury.io/{{ .Env.FURY_ORG }}/
