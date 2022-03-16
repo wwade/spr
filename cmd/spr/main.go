@@ -27,16 +27,20 @@ func init() {
 	log.Logger = log.With().Caller().Logger().Output(zerolog.ConsoleWriter{Out: os.Stderr})
 }
 
-func main() {
-	gitcmd := realgit.NewGitCmd(config.DefaultConfig())
-	//  check that we are inside a git dir
-	var output string
-	err := gitcmd.Git("status --porcelain", &output)
+func maybeReportError(err error, output string) {
 	if err != nil {
 		fmt.Println(output)
 		fmt.Println(err)
 		os.Exit(2)
 	}
+}
+
+func main() {
+	gitcmd := realgit.NewGitCmd(config.DefaultConfig())
+	//  check that we are inside a git dir
+	var output string
+	err := gitcmd.Git("status --porcelain", &output)
+	maybeReportError(err, output)
 
 	cfg := config.ParseConfig(gitcmd)
 	gitcmd = realgit.NewGitCmd(cfg)
@@ -135,8 +139,27 @@ VERSION: {{.Version}}
 				Name:    "update",
 				Aliases: []string{"u", "up"},
 				Usage:   "Update and create pull requests for updated commits in the stack",
+				Description: "It is possible to skip some commits on the current branch by using the\n" +
+					"optional COMMIT argument. When COMMIT is specified, only process commits up to,\n" +
+					"and including this commit hash / ref.\n\n" +
+					"Example:\n\n    git spr update HEAD~3",
+				ArgsUsage: "[COMMIT]",
 				Action: func(c *cli.Context) error {
-					stackedpr.UpdatePullRequests(ctx, c.StringSlice("reviewer"))
+					var commit *string
+					args := c.Args()
+					switch args.Len() {
+					case 0:
+						break
+					case 1:
+						v := args.First()
+						var output string
+						err := gitcmd.Git("rev-parse "+v, &output)
+						maybeReportError(err, output)
+						commit = &output
+					case 2:
+						panic("hi")
+					}
+					stackedpr.UpdatePullRequests(ctx, c.StringSlice("reviewer"), commit)
 					return nil
 				},
 				Flags: []cli.Flag{
@@ -159,7 +182,7 @@ VERSION: {{.Version}}
 					} else {
 						stackedpr.MergePullRequests(ctx, nil)
 					}
-					stackedpr.UpdatePullRequests(ctx, nil)
+					stackedpr.UpdatePullRequests(ctx, nil, nil)
 					return nil
 				},
 				Flags: []cli.Flag{

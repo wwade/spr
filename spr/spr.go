@@ -103,28 +103,44 @@ func (sd *stackediff) addReviewers(ctx context.Context,
 //   pull request if a commit has been amended.
 //  In the case where commits are reordered, the corresponding pull requests
 //   will also be reordered to match the commit stack order.
-func (sd *stackediff) UpdatePullRequests(ctx context.Context, reviewers []string) {
+func (sd *stackediff) UpdatePullRequests(ctx context.Context, reviewers []string, stopCommit *string) {
 	sd.profiletimer.Step("UpdatePullRequests::Start")
 	githubInfo := sd.fetchAndGetGitHubInfo(ctx)
 	if githubInfo == nil {
 		return
 	}
 	sd.profiletimer.Step("UpdatePullRequests::FetchAndGetGitHubInfo")
-	localCommits := sd.getLocalCommitStack()
+	unfilterdStack := sd.getLocalCommitStack()
 	sd.profiletimer.Step("UpdatePullRequests::GetLocalCommitStack")
 
 	// close prs for deleted commits
 	var validPullRequests []*github.PullRequest
 	localCommitMap := map[string]*git.Commit{}
-	for _, commit := range localCommits {
-		localCommitMap[commit.CommitID] = &commit
+	localCommitSkipPush := map[string]*git.Commit{}
+
+	skip := false
+	localCommits := []git.Commit{}
+	for _, commit := range unfilterdStack {
+		if skip {
+			localCommitSkipPush[commit.CommitID] = &commit
+		} else {
+			localCommitMap[commit.CommitID] = &commit
+			localCommits = append(localCommits, commit)
+			if stopCommit != nil && commit.CommitHash == *stopCommit {
+				skip = true
+			}
+		}
 	}
 	for _, pr := range githubInfo.PullRequests {
-		if _, found := localCommitMap[pr.Commit.CommitID]; !found {
+		_, skipFound := localCommitSkipPush[pr.Commit.CommitID]
+		_, found := localCommitMap[pr.Commit.CommitID]
+		if skipFound {
+			// Nothing to do
+		} else if found {
+			validPullRequests = append(validPullRequests, pr)
+		} else {
 			sd.github.CommentPullRequest(ctx, pr, "Closing pull request: commit has gone away")
 			sd.github.ClosePullRequest(ctx, pr)
-		} else {
-			validPullRequests = append(validPullRequests, pr)
 		}
 	}
 	githubInfo.PullRequests = validPullRequests
